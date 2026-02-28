@@ -5,12 +5,32 @@ Implement three greedy algorithms for delivery optimization.
 
 import json
 import time
+import copy
 
 
 # ============================================================================
 # PART 1: PACKAGE PRIORITIZATION (Activity Selection)
 # ============================================================================
+def insertion_sort_dict(dict_list,dict_key,asc=True):
+    
+    new_dict_list = copy.deepcopy(dict_list)
+    
+    for num in range(1,len(new_dict_list)):
+        keep_dict = new_dict_list[num]
+        key = new_dict_list[num][dict_key]
+        comparing_idx = num - 1
 
+        if asc:
+            while comparing_idx >=0 and key < new_dict_list[comparing_idx][dict_key]:
+                new_dict_list[comparing_idx+1] = new_dict_list[comparing_idx]
+                comparing_idx -=1
+        if asc==False:
+            while comparing_idx >=0 and key > new_dict_list[comparing_idx][dict_key]:
+                new_dict_list[comparing_idx+1] = new_dict_list[comparing_idx]
+                comparing_idx -=1
+
+        new_dict_list[comparing_idx+1] = keep_dict
+    return new_dict_list
 def maximize_deliveries(time_windows):
     """
     Schedule the maximum number of deliveries given time window constraints.
@@ -36,8 +56,17 @@ def maximize_deliveries(time_windows):
     # TODO: Implement greedy algorithm for activity selection
     # Hint: What greedy choice gives you the most room for future deliveries?
     # Hint: Think about sorting by a specific attribute
+    sort_by_end_time = insertion_sort_dict(time_windows,'end')
+
+    selected = [sort_by_end_time[0]]
+    selected_end_time = selected[0]['end']
+
+    for delivery in sort_by_end_time[1:]:
+        if delivery['start']>=selected_end_time:
+            selected.append(delivery)
+            selected_end_time = delivery['end']
+    return selected
     
-    pass  # Delete this and write your code
 
 
 # ============================================================================
@@ -76,7 +105,31 @@ def optimize_truck_load(packages, weight_limit):
     # Hint: What ratio determines which packages are most valuable per pound?
     # Hint: You can take fractions - if you have 5 lbs capacity left and a 10 lb package, take 0.5 of it
     
-    pass  # Delete this and write your code
+    for item in packages:
+        ratio = item['priority']/item['weight']
+        item['ratio'] = ratio
+    sorted_packages_by_ratio = insertion_sort_dict(packages,'ratio',asc=False)
+    
+    total_priority = 0
+    total_weight = 0
+    selected = []
+
+    for package in sorted_packages_by_ratio:
+        if package['weight'] + total_weight <=weight_limit:
+            selected.append((package['package_id'],1.0))
+            total_weight += package['weight']
+            total_priority += package['priority']
+        else:
+            remaining_weight = weight_limit-total_weight
+            fraction = remaining_weight/package['weight']
+            selected.append((package['package_id'],fraction))
+            total_priority += package['priority'] * fraction
+            total_weight = weight_limit
+            break  
+    return {
+        'total_priority': total_priority,
+        'total_weight':total_weight,
+        'packages':selected}
 
 
 # ============================================================================
@@ -112,7 +165,23 @@ def minimize_drivers(deliveries):
     # Hint: How do you know if a delivery overlaps with another?
     # Hint: Can you assign a delivery to an existing driver, or do you need a new one?
     
-    pass  # Delete this and write your code
+    sorted_interval_by_start_time = insertion_sort_dict(deliveries,'start')
+
+    assignment = []
+    resources = []
+    assgined = False
+    for interval in sorted_interval_by_start_time:
+        for i, resource in enumerate(resources):
+            if resource <= interval['start']:
+                assignment[i].append(interval['delivery_id'])
+                resources[i] = interval['end']
+                assgined = True
+                break
+        if not assgined:
+            resources.append(interval['end'])
+            assignment.append([interval['delivery_id']])
+    return {'num_drivers':len(assignment),
+            'assignments': assignment}
 
 
 # ============================================================================
@@ -299,7 +368,7 @@ if __name__ == "__main__":
     
     # test_package_prioritization()
     # test_truck_loading()
-    # test_driver_assignment()
-    # benchmark_scenarios()
+    #test_driver_assignment()
+    benchmark_scenarios()
     
     print("\n⚠ Uncomment the test functions in the main block to run tests!")
